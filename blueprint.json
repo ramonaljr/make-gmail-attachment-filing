@@ -1,0 +1,385 @@
+{
+  "name": "Integration Gmail",
+  "flow": [
+    {
+      "id": 3,
+      "module": "google-email:triggerWatchNewEmails",
+      "version": 4,
+      "parameters": {
+        "q": "label:to-file has:attachment",
+        "limit": 10,
+        "format": "full",
+        "markSeen": false,
+        "filterType": "gmailSearch",
+        "__IMTCONN__": null
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 4,
+      "module": "google-email:listEmailAttachments",
+      "version": 4,
+      "parameters": {
+        "__IMTCONN__": null
+      },
+      "mapper": {
+        "include": [
+          "attachment",
+          "media"
+        ],
+        "messageId": "{{3.id}}",
+        "returnAttachmentData": true
+      },
+      "metadata": {
+        "designer": {
+          "x": 309,
+          "y": -9
+        }
+      }
+    },
+    {
+      "id": 5,
+      "module": "gemini-ai:uploadAFile",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": null
+      },
+      "filter": {
+        "name": "Real attachments only",
+        "conditions": [
+          [
+            {
+              "a": "{{4.mimeType}}",
+              "b": "officedocument",
+              "o": "text:notcontain:ci"
+            },
+            {
+              "a": "{{4.filename}}",
+              "o": "exist"
+            },
+            {
+              "a": "{{4.data}}",
+              "o": "exist"
+            },
+            {
+              "a": "{{4.size}}",
+              "b": "20000",
+              "o": "number:greater"
+            }
+          ]
+        ]
+      },
+      "mapper": {
+        "file_data": "{{4.data}}",
+        "file_name": "{{4.filename}}",
+        "useFileSearchStore": false
+      },
+      "metadata": {
+        "designer": {
+          "x": 612,
+          "y": -10
+        }
+      },
+      "onerror": [
+        {
+          "id": 12,
+          "module": "builtin:Break",
+          "version": 1,
+          "parameters": {},
+          "mapper": {
+            "count": 3,
+            "retry": true,
+            "interval": 15
+          },
+          "metadata": {
+            "designer": {
+              "x": 612,
+              "y": 300
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "module": "gemini-ai:createACompletionGeminiPro",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": null
+      },
+      "mapper": {
+        "model": "gemini-3.6-flash",
+        "contents": [
+          {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Generate a short, descriptive file name based on the content of the attached file. Return only the file name, with no quotes or other text. Keep the same extension as the original file name: {{4.filename}}",
+                "type": "text"
+              },
+              {
+                "type": "file",
+                "file_data": {
+                  "file_uri": "{{5.uri}}",
+                  "mime_type": "{{5.mimeType}}"
+                }
+              }
+            ]
+          }
+        ],
+        "generationConfig": {
+          "imageConfig": {},
+          "thinkingConfig": {}
+        },
+        "system_instruction": {}
+      },
+      "metadata": {
+        "designer": {
+          "x": 912,
+          "y": -10
+        }
+      },
+      "onerror": [
+        {
+          "id": 13,
+          "module": "builtin:Break",
+          "version": 1,
+          "parameters": {},
+          "mapper": {
+            "count": 3,
+            "retry": true,
+            "interval": 15
+          },
+          "metadata": {
+            "designer": {
+              "x": 912,
+              "y": 300
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "module": "google-drive:uploadAFile",
+      "version": 4,
+      "parameters": {
+        "__IMTCONN__": null
+      },
+      "mapper": {
+        "data": "{{4.data}}",
+        "select": "value",
+        "convert": false,
+        "filename": "{{7.result}}",
+        "folderId": "/YOUR_PARENT_FOLDER_ID/YOUR_DRIVE_FOLDER_ID",
+        "destination": "drive"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1238,
+          "y": -26
+        },
+        "restore": {
+          "expect": {
+            "folderId": {
+              "mode": "chose",
+              "path": [
+                "Project - AI Automation",
+                "Make - Project 1"
+              ]
+            },
+            "destination": {
+              "mode": "chose",
+              "label": "My Drive"
+            }
+          },
+          "parameters": {
+            "__IMTCONN__": {
+              "label": "Your connection"
+            }
+          }
+        }
+      },
+      "onerror": [
+        {
+          "id": 14,
+          "module": "builtin:Break",
+          "version": 1,
+          "parameters": {},
+          "mapper": {
+            "count": 3,
+            "retry": true,
+            "interval": 15
+          },
+          "metadata": {
+            "designer": {
+              "x": 1238,
+              "y": 300
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "module": "google-sheets:addRow",
+      "version": 2,
+      "parameters": {
+        "__IMTCONN__": null
+      },
+      "mapper": {
+        "from": "drive",
+        "mode": "select",
+        "values": {
+          "0": "{{now}}",
+          "1": "{{4.filename}}",
+          "2": "{{7.result}}",
+          "3": "{{4.mimeType}}",
+          "4": "{{8.webContentLink}}"
+        },
+        "sheetId": "Sheet1",
+        "spreadsheetId": "/YOUR_PARENT_FOLDER_ID/YOUR_DRIVE_FOLDER_ID/YOUR_GOOGLE_SHEET_ID",
+        "includesHeaders": true,
+        "insertDataOption": "INSERT_ROWS",
+        "useColumnHeaders": false,
+        "valueInputOption": "USER_ENTERED",
+        "insertUnformatted": false
+      },
+      "metadata": {
+        "designer": {
+          "x": 1538,
+          "y": -26
+        },
+        "restore": {
+          "expect": {
+            "from": {
+              "label": "My Drive"
+            },
+            "mode": {
+              "label": "Search by path"
+            },
+            "sheetId": {
+              "label": "Sheet1"
+            },
+            "spreadsheetId": {
+              "path": [
+                "Project - AI Automation",
+                "Make - Project 1",
+                "File Attachments from Gmail Logs"
+              ]
+            },
+            "includesHeaders": {
+              "label": "Yes"
+            },
+            "insertDataOption": {
+              "mode": "chose",
+              "label": "Insert rows"
+            },
+            "useColumnHeaders": {
+              "label": "No"
+            },
+            "valueInputOption": {
+              "mode": "chose",
+              "label": "User entered"
+            },
+            "insertUnformatted": {
+              "mode": "chose"
+            }
+          },
+          "parameters": {
+            "__IMTCONN__": {
+              "data": {
+                "scoped": "true",
+                "connection": "google"
+              },
+              "label": "Your connection"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 11,
+      "module": "util:TextAggregator",
+      "version": 1,
+      "parameters": {
+        "feeder": 4,
+        "rowSeparator": "\n"
+      },
+      "mapper": {
+        "value": "- {{7.result}} (sent as {{4.filename}})"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1838,
+          "y": -26
+        }
+      }
+    },
+    {
+      "id": 10,
+      "module": "google-email:sendAnEmail",
+      "version": 4,
+      "parameters": {
+        "__IMTCONN__": null
+      },
+      "filter": {
+        "name": "Files were saved",
+        "conditions": [
+          [
+            {
+              "a": "{{11.text}}",
+              "o": "exist"
+            }
+          ]
+        ]
+      },
+      "mapper": {
+        "to": [
+          "{{3.fromEmail}}"
+        ],
+        "subject": "Your attachments are saved ({{3.subject}})",
+        "bodyType": "collection",
+        "contents": [
+          {
+            "text": "Hi {{ifempty(3.fromName; \"there\")}},\n\nThanks for your email. I've saved your attachments to my Google Drive under these names:\n\n{{11.text}}\n\nThis is just for your records. No action is needed.\n\nRegards,\nRamon",
+            "image": {}
+          }
+        ]
+      },
+      "metadata": {
+        "designer": {
+          "x": 2138,
+          "y": -26
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "instant": false,
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "autoCommitTriggerLast": true,
+      "sequential": false,
+      "slots": null,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": true,
+      "freshVariables": false
+    },
+    "designer": {
+      "orphans": []
+    },
+    "zone": "us2.make.com",
+    "notes": []
+  }
+}
