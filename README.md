@@ -2,7 +2,7 @@
 
 Label it once. It is named, filed and logged.
 
-> Built for **Fernhill Bookkeeping**, a fictional sample client. The business, people and data are invented; the scenario is complete and runs.
+> Built for **Ashgrove Bookkeeping**, a fictional sample client. The business, people and data are invented; the scenario is complete and runs.
 
 Label a client email To File and every attachment is named by AI, filed in Google Drive, logged in Google Sheets, and confirmed to the sender in one receipt.
 
